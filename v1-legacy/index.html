@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Paperline — Dig the Grave of the Paper</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">paperline</span>
+      <span class="brand-sub">dig the grave of the paper</span>
+    </div>
+    <div class="controls">
+      <input
+        id="topicInput"
+        type="text"
+        placeholder='e.g. "vision language models", "diffusion models", "transformers"'
+        autocomplete="off"
+      />
+      <select id="depthSelect" title="Max depth of citation tree">
+        <option value="1">depth 1</option>
+        <option value="2" selected>depth 2</option>
+        <option value="3">depth 3</option>
+      </select>
+      <select id="fanoutSelect" title="Max children per node">
+        <option value="5">5 / node</option>
+        <option value="8" selected>8 / node</option>
+        <option value="12">12 / node</option>
+        <option value="20">20 / node</option>
+      </select>
+      <button id="digBtn" class="primary">dig</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section id="canvas" class="canvas">
+      <div id="empty" class="empty-state">
+        <h1>start a dig</h1>
+        <p>
+          enter a research topic above. we will locate the seminal paper,
+          then recursively unearth everything that grew from it.
+        </p>
+        <ul class="examples">
+          <li data-topic="vision language models">vision language models</li>
+          <li data-topic="diffusion models">diffusion models</li>
+          <li data-topic="transformers attention">transformers attention</li>
+          <li data-topic="generative adversarial networks">generative adversarial networks</li>
+          <li data-topic="reinforcement learning from human feedback">RLHF</li>
+        </ul>
+        <p class="powered-by">powered by <a href="https://openalex.org" target="_blank" rel="noopener">openalex</a> — no api key required</p>
+      </div>
+
+      <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <div class="loading-text" id="loadingText">searching for the root paper…</div>
+        <div class="loading-progress">
+          <div class="loading-bar"><div id="loadingBar"></div></div>
+          <div class="loading-counts" id="loadingCounts">0 papers</div>
+        </div>
+        <div class="loading-log" id="loadingLog"></div>
+        <button id="cancelBtn" class="ghost">cancel</button>
+      </div>
+
+      <svg id="tree" class="hidden"></svg>
+
+      <div class="legend hidden" id="legend">
+        <div class="legend-item"><span class="dot dot-root"></span>root</div>
+        <div class="legend-item"><span class="dot dot-g1"></span>gen 1</div>
+        <div class="legend-item"><span class="dot dot-g2"></span>gen 2</div>
+        <div class="legend-item"><span class="dot dot-g3"></span>gen 3+</div>
+        <div class="legend-item legend-dead"><span class="dot dot-dead"></span>dead end</div>
+      </div>
+
+      <div class="hint hidden" id="hint">
+        click a node to inspect &nbsp;•&nbsp; double-click to expand/collapse &nbsp;•&nbsp; scroll to zoom &nbsp;•&nbsp; drag to pan
+      </div>
+    </section>
+
+    <aside id="panel" class="panel">
+      <div class="panel-empty" id="panelEmpty">
+        <h2>paper details</h2>
+        <p>select a node from the tree to view its abstract, authors and lineage from the root.</p>
+      </div>
+
+      <div class="panel-content hidden" id="panelContent">
+        <div class="panel-gen" id="panelGen">gen 0</div>
+        <h2 id="panelTitle">—</h2>
+        <div class="panel-meta">
+          <span id="panelYear">—</span>
+          <span class="sep">·</span>
+          <span id="panelVenue">—</span>
+          <span class="sep">·</span>
+          <span id="panelCites">0 citations</span>
+        </div>
+        <div class="panel-authors" id="panelAuthors">—</div>
+        <div class="panel-abstract" id="panelAbstract">—</div>
+        <div class="panel-actions">
+          <a id="panelLink" href="#" target="_blank" rel="noopener" class="primary">open paper</a>
+          <button id="expandBtn" class="ghost">load more citations</button>
+        </div>
+
+        <div class="panel-path">
+          <h3>lineage from root</h3>
+          <ol id="panelPath"></ol>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/tree.js"></script>
+  <script src="js/visualization.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
