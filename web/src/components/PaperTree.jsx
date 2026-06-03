@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import { hasWarnings, warningLabelsFor } from "../utils/validation";
-import { getRecommendedChildIds, getRecommendedPathEdges } from "../utils/treeHelpers";
 
 const NODE_DIMS = {
   0: { w: 300, h: 110, r: 14 },
@@ -16,10 +15,9 @@ function dimsFor(gen) {
 function truncate(text, max) {
   if (!text) return "";
   if (text.length <= max) return text;
-  return text.slice(0, max - 1).trimEnd() + "…";
+  return text.slice(0, max - 1).trimEnd() + "\u2026";
 }
 
-// Diagonal connector between two points for top-down tree.
 function diagonal(s, t) {
   const my = (s.y + t.y) / 2;
   return `M${s.x},${s.y} C${s.x},${my} ${t.x},${my} ${t.x},${t.y}`;
@@ -41,26 +39,18 @@ export default function PaperTree({
   onOpenToDepth,
   zoomLocked = false,
   onToggleZoomLock,
-  showBestPath = true,
-  onToggleBestPath,
 }) {
   const containerRef = useRef(null);
   const gRef = useRef(null);
   const zoomRef = useRef(null);
-  // per-node refs so keyboard nav can move focus programmatically
   const nodeRefs = useRef(new Map());
 
   const [hoverEdgeId, setHoverEdgeId] = useState(null);
   const [transform, setTransform] = useState(d3.zoomIdentity);
   const [size, setSize] = useState({ w: 1200, h: 700 });
-  // which node's "how it extends" popover is open. Only one at a time.
   const [infoOpenId, setInfoOpenId] = useState(null);
-  // which node's "validation warnings" popover is open. Only one at a time.
   const [warnOpenId, setWarnOpenId] = useState(null);
-  // which node's "why is this on the recommended path" popover is open.
-  const [bestPathOpenId, setBestPathOpenId] = useState(null);
 
-  // observe container size
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -74,38 +64,24 @@ export default function PaperTree({
     return () => ro.disconnect();
   }, []);
 
-  // close popovers on Escape (in addition to whatever's in App-level handlers)
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") {
         setInfoOpenId(null);
         setWarnOpenId(null);
-        setBestPathOpenId(null);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // build hierarchy + layout
-  const { nodes, links, bounds, isRootAlone, nodeById, bestPathEdgeSet, recommendedChildIdSet } = useMemo(() => {
+  const { nodes, links, bounds, isRootAlone, nodeById } = useMemo(() => {
     if (!root) {
-      return {
-        nodes: [],
-        links: [],
-        bounds: null,
-        isRootAlone: true,
-        nodeById: new Map(),
-        bestPathEdgeSet: new Set(),
-        recommendedChildIdSet: new Set(),
-      };
+      return { nodes: [], links: [], bounds: null, isRootAlone: true, nodeById: new Map() };
     }
 
-    // D3 uses the children accessor to decide which subtree to lay out.
-    // We hide subtrees whose parent is not in the `expanded` set.
     const h = d3.hierarchy(root, (d) => (expanded.has(d.id) ? d.children : null));
 
-    // node spacing tuned so wide gen-2 fans don't overlap
     const horizGap = 50;
     const vertGap = 200;
     const tree = d3
@@ -122,10 +98,7 @@ export default function PaperTree({
     const byId = new Map();
     for (const n of allNodes) byId.set(n.data.id, n);
 
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const n of allNodes) {
       const dims = dimsFor(n.depth);
       minX = Math.min(minX, n.x - dims.w / 2);
@@ -133,23 +106,7 @@ export default function PaperTree({
       minY = Math.min(minY, n.y - dims.h / 2);
       maxY = Math.max(maxY, n.y + dims.h / 2);
     }
-    if (!isFinite(minX)) {
-      minX = 0;
-      maxX = 0;
-      minY = 0;
-      maxY = 0;
-    }
-
-    // Best-path data: a Set of "sourceId>targetId" edge ids (matches the
-    // regular edge-id format), and a Set of node ids that are the LLM's
-    // recommended child of their parent. We compute the path edges from the
-    // raw tree (not the d3 hierarchy) because getRecommendedPathEdges
-    // walks via `recommendedChildId` which isn't on d3 nodes.
-    const recEdges = getRecommendedPathEdges(root);
-    const bestPathEdgeSet = new Set(
-      recEdges.map((e) => `${e.sourceId}>${e.targetId}`)
-    );
-    const recommendedChildIdSet = getRecommendedChildIds(root);
+    if (!isFinite(minX)) { minX = 0; maxX = 0; minY = 0; maxY = 0; }
 
     return {
       nodes: allNodes,
@@ -157,12 +114,9 @@ export default function PaperTree({
       bounds: { minX, maxX, minY, maxY, width: maxX - minX, height: maxY - minY },
       isRootAlone: allNodes.length === 1,
       nodeById: byId,
-      bestPathEdgeSet,
-      recommendedChildIdSet,
     };
   }, [root, expanded]);
 
-  // attach zoom behaviour once
   useEffect(() => {
     if (!svgRef.current) return;
     const svg = d3.select(svgRef.current);
@@ -183,12 +137,9 @@ export default function PaperTree({
       .on("zoom", (event) => setTransform(event.transform));
     zoom(svg);
     zoomRef.current = zoom;
-    return () => {
-      svg.on(".zoom", null);
-    };
+    return () => { svg.on(".zoom", null); };
   }, [zoomLocked, svgRef]);
 
-  // fit-to-content on first render of a new tree, or when the root is alone
   const lastFitKey = useRef(null);
   useEffect(() => {
     if (!bounds || !svgRef.current || !zoomRef.current) return;
@@ -197,7 +148,6 @@ export default function PaperTree({
     if (lastFitKey.current === key && expanded.size > 0) return;
     lastFitKey.current = key;
 
-    // If only the root is on screen, center it and don't shrink to fit
     if (isRootAlone) {
       const tx = size.w / 2;
       const ty = (size.h - dimsFor(0).h) / 2;
@@ -239,27 +189,14 @@ export default function PaperTree({
     d3.select(svgRef.current).transition().duration(220).call(zoomRef.current.scaleBy, factor);
   }
 
-  // Move keyboard focus to a given node by id, scrolling it into view if
-  // needed. Used by the keyboard navigation handler below.
   function focusNode(id) {
     const el = nodeRefs.current.get(id);
     if (el) el.focus();
   }
 
-  // Arrow-key / Enter / Space handler for tree nodes. Implements a small
-  // subset of the WAI-ARIA tree pattern:
-  //   ArrowDown  → next sibling-or-descendant (DFS)
-  //   ArrowUp    → previous sibling-or-ancestor
-  //   ArrowRight → expand if collapsed; otherwise first child
-  //   ArrowLeft  → collapse if expanded; otherwise parent
-  //   Home/End   → first / last node in DFS
-  //   Enter/Space → select (delegated to the existing onClick handler via
-  //                 a synthetic call to onSelect)
   function handleNodeKeyDown(e, data) {
     const node = nodeById.get(data.id);
     if (!node) return;
-
-    // DFS ordering for ArrowUp / ArrowDown.
     const flat = nodes;
 
     if (e.key === "ArrowDown") {
@@ -299,7 +236,7 @@ export default function PaperTree({
       e.preventDefault();
       const isExpanded = expanded.has(data.id);
       if (isExpanded) {
-        onExpand?.(data); // toggles to collapsed
+        onExpand?.(data);
       } else if (node.parent) {
         focusNode(node.parent.data.id);
       }
@@ -312,23 +249,16 @@ export default function PaperTree({
     }
   }
 
-  // Click handler for the SVG background (empty canvas) — deselects.
   function handleBackgroundClick(e) {
-    // Ignore clicks on nodes / controls (they stopPropagation already,
-    // but defense in depth).
     if (e.target.closest && e.target.closest("[data-node]")) return;
     if (e.target.closest && e.target.closest("[data-tree-control]")) return;
     onSelect?.(null);
     setInfoOpenId(null);
     setWarnOpenId(null);
-    setBestPathOpenId(null);
   }
 
-  // Resolve the open popover nodes (null if the id isn't in the current
-  // layout — e.g. the user collapsed the branch while the popover was open).
   const infoNode = infoOpenId ? nodeById.get(infoOpenId) : null;
   const warnNode = warnOpenId ? nodeById.get(warnOpenId) : null;
-  const bestPathNode = bestPathOpenId ? nodeById.get(bestPathOpenId) : null;
 
   if (!root) return null;
 
@@ -342,7 +272,7 @@ export default function PaperTree({
         width={size.w}
         height={size.h}
         role="img"
-        aria-label="paper lineage tree"
+        aria-label="paperline tree"
         data-paper-tree-svg="true"
         onClick={handleBackgroundClick}
       >
@@ -363,21 +293,11 @@ export default function PaperTree({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="bestPathGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
-            <feFlood floodColor="#f0c878" floodOpacity="0.55" />
-            <feComposite in2="SourceAlpha" operator="in" />
-            <feMerge>
-              <feMergeNode />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
         </defs>
 
         <rect x="0" y="0" width={size.w} height={size.h} fill="url(#paperGrid)" pointerEvents="none" />
 
         <g ref={gRef} transform={transformStr}>
-          {/* edges first so nodes overlap them */}
           <g className="paper-tree-edges">
             {links.map((link) => {
               const srcDims = dimsFor(link.source.depth);
@@ -417,36 +337,6 @@ export default function PaperTree({
             })}
           </g>
 
-          {/* "best path" edges — a thin gold line that traces the LLM-picked
-              recommended chain from root to leaf. Rendered after the regular
-              edges (so it sits on top) but before the nodes (so the nodes
-              cover the line's endpoints cleanly). */}
-          {showBestPath ? (
-            <g className="paper-tree-best-path-edges">
-              {links
-                .filter((link) => {
-                  const id = `${link.source.data.id}>${link.target.data.id}`;
-                  return bestPathEdgeSet.has(id);
-                })
-                .map((link) => {
-                  const srcDims = dimsFor(link.source.depth);
-                  const tgtDims = dimsFor(link.target.depth);
-                  const s = { x: link.source.x, y: link.source.y + srcDims.h / 2 };
-                  const t = { x: link.target.x, y: link.target.y - tgtDims.h / 2 };
-                  const id = `${link.source.data.id}->${link.target.data.id}`;
-                  return (
-                    <path
-                      key={id}
-                      className="paper-tree-best-path-edge"
-                      d={diagonal(s, t)}
-                      filter="url(#bestPathGlow)"
-                    />
-                  );
-                })}
-            </g>
-          ) : null}
-
-          {/* nodes */}
           <g className="paper-tree-nodes">
             {nodes.map((node) => {
               const dims = dimsFor(node.depth);
@@ -456,20 +346,9 @@ export default function PaperTree({
               const isMaxDepth = node.depth >= maxDepth;
               const isExpandable = !isMaxDepth;
               const isLoading = loadingChildId === data.id;
-              // a node is a "leaf" visually if:
-              //   - it has no children loaded (status pending or leaf)
-              //   - OR it is at max depth
               const isLeaf = !isExpandable || status === "leaf";
               const isSelected = selectedId === data.id;
-              // best path: is this node the LLM's recommended child of its
-              // parent? (The root is on the path by default; the badge is
-              // only shown for non-root nodes, since the root is implied.)
-              const isOnBestPath =
-                showBestPath &&
-                node.depth > 0 &&
-                recommendedChildIdSet.has(data.id);
 
-              // Lines for body text (title wraps; meta stays single line)
               const titleLineHeight = node.depth === 0 ? 20 : 18;
               const titleMaxChars = node.depth === 0 ? 38 : node.depth === 1 ? 30 : 26;
               const title = truncate(data.title, titleMaxChars);
@@ -486,8 +365,7 @@ export default function PaperTree({
                     ` paper-tree-node--gen${node.depth}` +
                     (isSelected ? " paper-tree-node--selected" : "") +
                     (isLeaf ? " paper-tree-node--leaf" : "") +
-                    (isExpanded ? " paper-tree-node--expanded" : " paper-tree-node--collapsed") +
-                    (isOnBestPath ? " paper-tree-node--best-path" : "")
+                    (isExpanded ? " paper-tree-node--expanded" : " paper-tree-node--collapsed")
                   }
                   transform={`translate(${node.x},${node.y})`}
                   ref={(el) => {
@@ -513,7 +391,6 @@ export default function PaperTree({
                     filter={node.depth === 0 ? "url(#rootGlow)" : undefined}
                   />
 
-                  {/* generation badge — top-left corner */}
                   <text
                     className="paper-tree-node-badge"
                     x={-dims.w / 2 + 12}
@@ -523,32 +400,6 @@ export default function PaperTree({
                     {node.depth === 0 ? "ROOT" : `gen ${node.depth}`}
                   </text>
 
-                  {/* best-path star — top-center. A small gold filled ★
-                      marks this node as the LLM's recommended child of its
-                      parent. Clicking opens the "why recommended" popover. */}
-                  {isOnBestPath ? (
-                    <g
-                      className={`paper-tree-node-best-star${bestPathOpenId === data.id ? " paper-tree-node-best-star--open" : ""}`}
-                      transform={`translate(0,${-dims.h / 2 + 6})`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setInfoOpenId(null);
-                        setWarnOpenId(null);
-                        setBestPathOpenId((cur) => (cur === data.id ? null : data.id));
-                      }}
-                      role="button"
-                      tabIndex={-1}
-                      aria-label="on the recommended path"
-                      aria-expanded={bestPathOpenId === data.id}
-                    >
-                      <circle r={8} className="paper-tree-node-best-star-bg" />
-                      <text textAnchor="middle" dy="0.36em" className="paper-tree-node-best-star-glyph">
-                        ★
-                      </text>
-                    </g>
-                  ) : null}
-
-                  {/* star toggle — top-right corner */}
                   {onToggleStar ? (
                     <g
                       className={`paper-tree-node-star${isStarred?.(data) ? " paper-tree-node-star--on" : ""}`}
@@ -564,12 +415,11 @@ export default function PaperTree({
                     >
                       <circle r={10} className="paper-tree-node-star-bg" />
                       <text textAnchor="middle" dy="0.34em" className="paper-tree-node-star-glyph">
-                        {isStarred?.(data) ? "★" : "☆"}
+                        {isStarred?.(data) ? "\u2605" : "\u2606"}
                       </text>
                     </g>
                   ) : null}
 
-                  {/* info (how it extends the parent) — bottom-left corner */}
                   {hasHowExtends ? (
                     <g
                       className={`paper-tree-node-info${infoOpenId === data.id ? " paper-tree-node-info--open" : ""}`}
@@ -577,7 +427,6 @@ export default function PaperTree({
                       onClick={(e) => {
                         e.stopPropagation();
                         setWarnOpenId(null);
-                        setBestPathOpenId(null);
                         setInfoOpenId((cur) => (cur === data.id ? null : data.id));
                       }}
                       role="button"
@@ -592,7 +441,6 @@ export default function PaperTree({
                     </g>
                   ) : null}
 
-                  {/* validation warning — bottom-right corner */}
                   {warnings.length > 0 ? (
                     <g
                       className={`paper-tree-node-warn${warnOpenId === data.id ? " paper-tree-node-warn--open" : ""}`}
@@ -600,7 +448,6 @@ export default function PaperTree({
                       onClick={(e) => {
                         e.stopPropagation();
                         setInfoOpenId(null);
-                        setBestPathOpenId(null);
                         setWarnOpenId((cur) => (cur === data.id ? null : data.id));
                       }}
                       role="button"
@@ -609,9 +456,7 @@ export default function PaperTree({
                       aria-expanded={warnOpenId === data.id}
                     >
                       <circle r={10} className="paper-tree-node-warn-bg" />
-                      <text textAnchor="middle" dy="0.36em" className="paper-tree-node-warn-glyph">
-                        !
-                      </text>
+                      <text textAnchor="middle" dy="0.36em" className="paper-tree-node-warn-glyph">!</text>
                     </g>
                   ) : null}
 
@@ -622,9 +467,7 @@ export default function PaperTree({
                     textAnchor="middle"
                   >
                     {title.split("\n").map((line, i) => (
-                      <tspan key={i} x={0} dy={i === 0 ? 0 : titleLineHeight}>
-                        {line}
-                      </tspan>
+                      <tspan key={i} x={0} dy={i === 0 ? 0 : titleLineHeight}>{line}</tspan>
                     ))}
                   </text>
 
@@ -638,7 +481,7 @@ export default function PaperTree({
                       `${data.authors?.[0] || "anon"}${data.authors?.length > 1 ? " et al." : ""}`,
                       34
                     )}
-                    {data.year ? `  ·  ${data.year}` : ""}
+                    {data.year ? `  \u00b7  ${data.year}` : ""}
                   </text>
 
                   {isLeaf && (isExpanded || node.depth === 0) ? (
@@ -652,17 +495,12 @@ export default function PaperTree({
                     </text>
                   ) : null}
 
-                  {/* toggle: loading / expand / collapse. If this node is
-                      the LLM-picked recommended child of its parent and
-                      best path is on, the toggle gets a gold accent to
-                      signal "expand this for the recommended next step". */}
                   {isExpandable ? (
                     <g
                       className={
                         `paper-tree-node-toggle` +
                         (isLoading ? " paper-tree-node-toggle--loading" : "") +
-                        (isExpanded ? " paper-tree-node-toggle--open" : "") +
-                        (isOnBestPath && !isExpanded ? " paper-tree-node-toggle--best" : "")
+                        (isExpanded ? " paper-tree-node-toggle--open" : "")
                       }
                       transform={`translate(0,${dims.h / 2 + 14})`}
                       onClick={(e) => {
@@ -696,7 +534,7 @@ export default function PaperTree({
                             className="paper-tree-node-toggle-bg"
                           />
                           <text textAnchor="middle" dy="0.34em">
-                            {isExpanded ? "− collapse" : "+ reveal"}
+                            {isExpanded ? "\u2212 collapse" : "+ reveal"}
                           </text>
                         </>
                       )}
@@ -709,7 +547,6 @@ export default function PaperTree({
         </g>
       </svg>
 
-      {/* info / warn popovers (HTML overlays positioned via the SVG transform) */}
       <Popover
         open={Boolean(infoNode && infoNode.data.id === infoOpenId)}
         node={infoNode}
@@ -743,26 +580,7 @@ export default function PaperTree({
           the LLM may have hallucinated. verify before citing.
         </div>
       </Popover>
-      <Popover
-        open={Boolean(bestPathNode && bestPathNode.data.id === bestPathOpenId)}
-        node={bestPathNode}
-        transform={transform}
-        onClose={() => setBestPathOpenId(null)}
-        kind="best"
-      >
-        <div className="tree-popover-title">on the recommended path</div>
-        <div className="tree-popover-body">
-          {bestPathNode?.data.importanceReason ||
-            "Picked by the LLM as the next step that gives the most complete understanding of the topic."}
-        </div>
-        {bestPathNode?.data.importance ? (
-          <div className="tree-popover-foot">
-            importance: {bestPathNode.data.importance} / 5
-          </div>
-        ) : null}
-      </Popover>
 
-      {/* empty-canvas hint when only the root is on screen */}
       {nodes.length <= 1 ? (
         <div className="paper-tree-hint" aria-hidden="true">
           click the <span className="paper-tree-hint-glyph">+ reveal</span> badge on the root to
@@ -771,50 +589,18 @@ export default function PaperTree({
       ) : null}
 
       <div className="paper-tree-controls" role="group" aria-label="tree controls">
-        <button
-          type="button"
-          onClick={() => zoomBy(1.25)}
-          aria-label="zoom in"
-          data-tree-control="true"
-        >
-          +
-        </button>
-        <button
-          type="button"
-          onClick={() => zoomBy(0.8)}
-          aria-label="zoom out"
-          data-tree-control="true"
-        >
-          −
-        </button>
-        <button
-          type="button"
-          onClick={resetView}
-          aria-label="reset view"
-          data-tree-control="true"
-        >
-          ⤢
-        </button>
+        <button type="button" onClick={() => zoomBy(1.25)} aria-label="zoom in" data-tree-control="true">+</button>
+        <button type="button" onClick={() => zoomBy(0.8)} aria-label="zoom out" data-tree-control="true">\u2212</button>
+        <button type="button" onClick={resetView} aria-label="reset view" data-tree-control="true">\u2922</button>
       </div>
 
       {onOpenToDepth ? (
         <div className="paper-tree-expand-controls" role="group" aria-label="expand controls">
-          <button
-            type="button"
-            onClick={onExpandAll}
-            disabled={!onExpandAll}
-            data-tree-control="true"
-            title="expand every loaded node"
-          >
-            ⊞ all
+          <button type="button" onClick={onExpandAll} disabled={!onExpandAll} data-tree-control="true" title="expand every loaded node">
+            \u229e all
           </button>
-          <button
-            type="button"
-            onClick={onCollapseAll}
-            data-tree-control="true"
-            title="collapse every node"
-          >
-            ⊟ none
+          <button type="button" onClick={onCollapseAll} data-tree-control="true" title="collapse every node">
+            \u229f none
           </button>
           {[1, 2, 3].map((d) => (
             <button
@@ -831,21 +617,6 @@ export default function PaperTree({
         </div>
       ) : null}
 
-      {onToggleBestPath ? (
-        <button
-          type="button"
-          className={`paper-tree-best-toggle${showBestPath ? " paper-tree-best-toggle--on" : ""}`}
-          onClick={onToggleBestPath}
-          aria-label={showBestPath ? "hide recommended path" : "show recommended path"}
-          aria-pressed={showBestPath}
-          title={showBestPath ? "hide recommended path" : "show recommended path"}
-          data-tree-control="true"
-        >
-          <span aria-hidden="true">★</span>
-          <span className="paper-tree-best-toggle-label">best path</span>
-        </button>
-      ) : null}
-
       <button
         type="button"
         className={`paper-tree-zoom-lock${zoomLocked ? " paper-tree-zoom-lock--on" : ""}`}
@@ -855,14 +626,12 @@ export default function PaperTree({
         title={zoomLocked ? "pan & zoom locked — click to unlock" : "lock pan & zoom"}
         data-tree-control="true"
       >
-        {zoomLocked ? "🔒" : "🔓"}
+        {zoomLocked ? "\uD83D\uDD12" : "\uD83D\uDD13"}
       </button>
     </div>
   );
 }
 
-// Small HTML overlay positioned over an SVG node. The popover is anchored
-// below the node and clamped to the container so long text stays readable.
 function Popover({ open, node, transform, onClose, kind, children }) {
   if (!open || !node) return null;
   const x = node.x * transform.k + transform.x;
@@ -870,20 +639,12 @@ function Popover({ open, node, transform, onClose, kind, children }) {
   return (
     <div
       className={`tree-popover tree-popover--${kind}`}
-      style={{
-        left: `${x}px`,
-        top: `${y}px`,
-      }}
+      style={{ left: `${x}px`, top: `${y}px` }}
       role="dialog"
       aria-label={kind === "info" ? "paper detail" : "validation warnings"}
     >
-      <button
-        type="button"
-        className="tree-popover-close"
-        onClick={onClose}
-        aria-label="close"
-      >
-        ×
+      <button type="button" className="tree-popover-close" onClick={onClose} aria-label="close">
+        \u00d7
       </button>
       {children}
     </div>

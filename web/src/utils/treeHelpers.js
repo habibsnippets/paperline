@@ -41,6 +41,17 @@ export function findNode(root, id) {
   return null;
 }
 
+// Find a node in the tree by its title.
+export function findNodeByTitle(root, title) {
+  if (!root || !title) return null;
+  if (root.title === title) return root;
+  for (const c of root.children || []) {
+    const hit = findNodeByTitle(c, title);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 // Return a new tree with `children` attached to the node matching `id`.
 export function setChildren(root, id, children) {
   if (!root) return root;

@@ -12,9 +12,6 @@ export const DEFAULT_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
 
 export const AVAILABLE_MODELS = [
   "meta-llama/Llama-3.3-70B-Instruct",
-  "Qwen/Qwen2.5-72B-Instruct",
-  "meta-llama/Llama-3.1-70B-Instruct",
-  "mistralai/Mistral-Nemo-Instruct-2407",
 ];
 
 // ---------- token storage ----------
@@ -276,13 +273,25 @@ const SYSTEM_RULES =
   "Never wrap the JSON in markdown fences. Never include prose before or after. " +
   "If you are uncertain about a field, give your best informed estimate but do not invent venue names or arXiv IDs you are not confident in — use an empty string instead.";
 
-function rootPrompt(topic) {
+const ERA_INSTRUCTIONS = {
+  origins:
+    `Find the earliest foundational paper that first introduced the concept of "{topic}", even if from decades ago.`,
+  inflection:
+    `Find the paper that caused "{topic}" to transition from a niche research area to a widely-studied field — the paper that made subsequent work explode in volume. Ignore earlier theoretical foundations.`,
+  modern:
+    `Find the most important paper published after 2019 that defines the current state of "{topic}" research. Ignore all pre-2020 work.`,
+};
+
+function rootPrompt(topic, era = "inflection") {
+  const instruction =
+    ERA_INSTRUCTIONS[era] ||
+    ERA_INSTRUCTIONS.inflection;
   return [
     { role: "system", content: SYSTEM_RULES },
     {
       role: "user",
       content:
-        `What is the single most foundational/seminal paper that first introduced the core idea of "${topic}"? ` +
+        `${instruction.replace("{topic}", topic)} ` +
         `Return ONLY a JSON object with these exact keys: ` +
         `{ "title": string, "authors": string[], "year": number, "venue": string, ` +
         `"arxiv_id_or_doi": string, "one_line_summary": string, "why_its_the_root": string }.`,
@@ -315,9 +324,9 @@ function childrenPrompt(parent, limit = 5) {
 
 // ---------- public surface ----------
 
-export async function findRootPaper(topic, { model, signal } = {}) {
+export async function findRootPaper(topic, { model, signal, era = "inflection" } = {}) {
   const data = await chatJson({
-    messages: rootPrompt(topic),
+    messages: rootPrompt(topic, era),
     model,
     temperature: 0.2,
     maxTokens: 900,
@@ -369,6 +378,215 @@ export async function findChildrenForMany(parents, options = {}) {
     children: r.status === "fulfilled" ? r.value.children : [],
     error: r.status === "rejected" ? r.reason : null,
   }));
+}
+
+// ---------- challenges ("Build It") ----------
+
+const CHALLENGES_SYSTEM =
+  "You are a senior research engineer with 10+ years of ML systems experience. " +
+  "You answer with rigorously formatted JSON and nothing else. " +
+  "Never wrap the JSON in markdown fences. Never include prose before or after. " +
+  "Your tone is direct, no hand-holding — like a code review comment.";
+
+function challengesPrompt(paper) {
+  return [
+    { role: "system", content: CHALLENGES_SYSTEM },
+    {
+      role: "user",
+      content:
+        `You've just read "${paper.title}" (${paper.year || "n.d."}) by ${(paper.authors || []).join(", ") || "unknown"}.\n\n` +
+        `Your job: give a junior engineer 2-3 concrete implementation challenges ` +
+        `extracted from the critical engineering problems in this paper.\n\n` +
+        `Constraints you MUST respect:\n` +
+        `- All challenges runnable on a free Colab T4 (16GB VRAM, ~12hr session)\n` +
+        `- No paid APIs, no private datasets\n` +
+        `- Each challenge has: a clear deliverable, a success metric (a number), and an estimated time (hours)\n` +
+        `- Tone: direct, no hand-holding, like a code review comment\n\n` +
+        `Paper summary: ${paper.summary || "not available"}\n\n` +
+        `Return ONLY a JSON object with this exact structure:\n` +
+        `{ "challenges": [\n` +
+        `  { "title": "...", "problem_statement": "...", "your_task": "...", ` +
+        `"deliverable": "...", "success_metric": "...", "colab_feasible": true, ` +
+        `"estimated_hours": 4, "difficulty": "medium", "hint": "..." }\n` +
+        `] }`,
+    },
+  ];
+}
+
+export async function generateChallenges(paper, { signal } = {}) {
+  if (!paper || !paper.title) throw new HFError("No paper data to generate challenges from.");
+  const data = await chatJson({
+    messages: challengesPrompt(paper),
+    temperature: 0.3,
+    maxTokens: 1600,
+    signal,
+  });
+  if (data && Array.isArray(data.challenges)) return data.challenges;
+  throw new HFError("Model returned invalid challenges format.");
+}
+
+// ---------- learning path ----------
+
+const LEARNING_PATH_SYSTEM =
+  "You are a careful academic-citation assistant who designs learning curricula. " +
+  "You answer with rigorously formatted JSON and nothing else. " +
+  "Never wrap the JSON in markdown fences. Never include prose before or after.";
+
+function treeSummary(root, depth = 0) {
+  if (!root) return "";
+  const pad = "  ".repeat(depth);
+  const authors = root.authors?.[0] || "unknown";
+  let s = `${pad}- "${root.title}" (${root.year || "n.d."}) by ${authors}`;
+  if (root.summary) s += ` — ${root.summary.slice(0, 120)}`;
+  s += "\n";
+  for (const c of root.children || []) s += treeSummary(c, depth + 1);
+  return s;
+}
+
+function learningPathPrompt(topic, tree) {
+  return [
+    { role: "system", content: LEARNING_PATH_SYSTEM },
+    {
+      role: "user",
+      content:
+        `Given this paper lineage tree for the topic "${topic}", select 6-10 papers ` +
+        `that form the clearest learning path from foundational concept to modern state of the art.\n\n` +
+        `Rules:\n` +
+        `- Each paper must build conceptually on the previous one\n` +
+        `- No redundant papers (don't include two papers solving the same problem)\n` +
+        `- Prefer papers with available arXiv PDFs\n` +
+        `- The path should tell a story: "to understand modern X, you need to ` +
+        `first understand A, then B showed that C, then D changed everything because of E..."\n\n` +
+        `Tree:\n${treeSummary(tree)}\n\n` +
+        `Return ONLY a JSON object:\n` +
+        `{ "path": [ { "paper_title": string, "paper_year": number, "reason_in_path": string } ] }`,
+    },
+  ];
+}
+
+export async function generateLearningPath(topic, tree, { signal } = {}) {
+  if (!topic || !tree) throw new HFError("Missing topic or tree.");
+  const data = await chatJson({
+    messages: learningPathPrompt(topic, tree),
+    temperature: 0.25,
+    maxTokens: 2400,
+    signal,
+  });
+  if (data && Array.isArray(data.path)) return data.path;
+  throw new HFError("Model returned invalid learning path format.");
+}
+
+// ---------- study guide ----------
+
+const STUDY_GUIDE_SYSTEM =
+  "You are a senior research engineer who has read this paper and is briefing a junior " +
+  "before a paper reading session. You answer with rigorously formatted JSON and nothing else. " +
+  "Never wrap the JSON in markdown fences. Never include prose before or after.";
+
+function studyGuidePrompt(paper, topic) {
+  return [
+    { role: "system", content: STUDY_GUIDE_SYSTEM },
+    {
+      role: "user",
+      content:
+        `Brief a junior engineer on "${paper.title}" (${paper.year || "n.d."}) ` +
+        `before their paper reading session. Context: they are studying ${topic || "this topic"}.\n\n` +
+        `Paper summary: ${paper.summary || "not available"}\n` +
+        `Authors: ${(paper.authors || []).join(", ") || "unknown"}\n` +
+        `Venue: ${paper.venue || "unknown"}\n\n` +
+        `Return ONLY a JSON object with this exact structure:\n` +
+        `{\n` +
+        `  "must_understand": [\n` +
+        `    "The core problem being solved in 1 sentence",\n` +
+        `    "The key architectural/algorithmic insight",\n` +
+        `    "Why previous approaches failed at this"\n` +
+        `  ],\n` +
+        `  "skip_these": [\n` +
+        `    { "section": "Appendix B", "reason": "Proof of convergence, not needed for implementation" }\n` +
+        `  ],\n` +
+        `  "implement_this": {\n` +
+        `    "description": "The one thing worth coding from this paper",\n` +
+        `    "why": "...",\n` +
+        `    "estimated_lines": 50,\n` +
+        `    "colab_feasible": true\n` +
+        `  },\n` +
+        `  "mental_model": "One paragraph that makes the paper's idea stick"\n` +
+        `}`,
+    },
+  ];
+}
+
+export async function generateStudyGuide(paper, topic, { signal } = {}) {
+  if (!paper || !paper.title) throw new HFError("No paper data to generate study guide from.");
+  const data = await chatJson({
+    messages: studyGuidePrompt(paper, topic),
+    temperature: 0.2,
+    maxTokens: 1600,
+    signal,
+  });
+  if (data && data.must_understand) return data;
+  throw new HFError("Model returned invalid study guide format.");
+}
+
+// ---------- project generation ----------
+
+const PROJECTS_SYSTEM =
+  "You are a senior research engineer designing project-based learning curricula. " +
+  "You answer with rigorously formatted JSON and nothing else. " +
+  "Never wrap the JSON in markdown fences. Never include prose before or after.";
+
+function projectsPrompt(topic, pathPapers, projectType) {
+  const paperList = pathPapers
+    .map((p, i) => `${i + 1}. "${p.title}" (${p.year || "n.d."}) — ${p.summary?.slice(0, 150) || "no summary"}`)
+    .join("\n");
+  return [
+    { role: "system", content: PROJECTS_SYSTEM },
+    {
+      role: "user",
+      content:
+        `The user has read these ${pathPapers.length} papers in sequence for the topic "${topic}":\n\n` +
+        `${paperList}\n\n` +
+        `Their hardware constraint: free Colab T4 (16GB VRAM, ~12hr session).\n` +
+        `No paid APIs, no private datasets.\n\n` +
+        (projectType === "mle"
+          ? `Generate projects for the MLE Path — "Ship something that works":\n` +
+            `Core engineering. Production-grade implementations. Benchmark numbers on your resume.\n\n`
+          : `Generate projects for the Research Engineering Path — "Find something that doesn't work yet":\n` +
+            `Experiments, ablations, novel combinations. Conference-submittable directions.\n\n`) +
+        `Generate:\n` +
+        `1. Two mini projects (1-2 days each) that each combine knowledge from at least 3 of these papers. ` +
+        `These should be self-contained, have a clear benchmark to beat, and produce something shareable (GitHub repo + a result table or demo).\n` +
+        `2. One capstone project (1-2 weeks) that synthesizes all the papers into a novel system. ` +
+        `This should be resume-worthy.\n\n` +
+        `Return ONLY a JSON object:\n` +
+        `{ "projects": [\n` +
+        `  {\n` +
+        `    "title": "...",\n` +
+        `    "tagline": "...",\n` +
+        `    "papers_used": [...],\n` +
+        `    "what_you_build": "...",\n` +
+        `    "deliverable": "...",\n` +
+        `    "success_metric": "...",\n` +
+        `    "stretch_goal": "...",\n` +
+        `    "colab_setup": "...",\n` +
+        `    "estimated_days": 2,\n` +
+        `    "resume_bullet": "..."\n` +
+        `  }\n` +
+        `] }`,
+    },
+  ];
+}
+
+export async function generateProjects(topic, pathPapers, projectType, { signal } = {}) {
+  if (!topic || !pathPapers?.length) throw new HFError("Missing topic or path papers.");
+  const data = await chatJson({
+    messages: projectsPrompt(topic, pathPapers, projectType || "mle"),
+    temperature: 0.3,
+    maxTokens: 2800,
+    signal,
+  });
+  if (data && Array.isArray(data.projects)) return data.projects;
+  throw new HFError("Model returned invalid projects format.");
 }
 
 // Semantic Scholar deep-link for a paper title.

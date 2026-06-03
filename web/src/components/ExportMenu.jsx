@@ -5,10 +5,17 @@ export default function ExportMenu({
   onExportJson,
   onExportPng,
   onCopyLink,
-  busy = null, // "json" | "png" | "link" | null
+  busy = null,
+  premium = false,
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const jsonRef = useRef(onExportJson);
+  const pngRef = useRef(onExportPng);
+  const linkRef = useRef(onCopyLink);
+  useEffect(() => { jsonRef.current = onExportJson; }, [onExportJson]);
+  useEffect(() => { pngRef.current = onExportPng; }, [onExportPng]);
+  useEffect(() => { linkRef.current = onCopyLink; }, [onCopyLink]);
 
   useEffect(() => {
     if (!open) return;
@@ -25,11 +32,6 @@ export default function ExportMenu({
       window.removeEventListener("keydown", onKey);
     };
   }, [open]);
-
-  function handle(action) {
-    setOpen(false);
-    action?.();
-  }
 
   return (
     <div className="export-menu" ref={rootRef}>
@@ -51,7 +53,7 @@ export default function ExportMenu({
             className="export-menu-item"
             role="menuitem"
             disabled={disabled || busy === "json"}
-            onClick={() => handle(onExportJson)}
+            onClick={() => { jsonRef.current?.(); setOpen(false); }}
           >
             <span className="export-menu-item-glyph" aria-hidden="true">⌗</span>
             <span className="export-menu-item-label">download as JSON</span>
@@ -62,7 +64,7 @@ export default function ExportMenu({
             className="export-menu-item"
             role="menuitem"
             disabled={disabled || busy === "png"}
-            onClick={() => handle(onExportPng)}
+            onClick={() => { pngRef.current?.(); setOpen(false); }}
           >
             <span className="export-menu-item-glyph" aria-hidden="true">▣</span>
             <span className="export-menu-item-label">download as PNG</span>
@@ -73,11 +75,40 @@ export default function ExportMenu({
             className="export-menu-item"
             role="menuitem"
             disabled={disabled || busy === "link"}
-            onClick={() => handle(onCopyLink)}
+            onClick={() => { linkRef.current?.(); setOpen(false); }}
           >
             <span className="export-menu-item-glyph" aria-hidden="true">⧉</span>
             <span className="export-menu-item-label">copy shareable link</span>
             <span className="export-menu-item-hint">encode topic in URL</span>
+          </button>
+          <div className="export-menu-sep" />
+          <button
+            type="button"
+            className={`export-menu-item${!premium ? " export-menu-item--locked" : ""}`}
+            role="menuitem"
+            disabled={!premium}
+            onClick={() => { setOpen(false); }}
+          >
+            <span className="export-menu-item-glyph" aria-hidden="true">⎔</span>
+            <span className="export-menu-item-label">
+              export as PDF
+              {!premium ? <span className="premium-badge">premium</span> : null}
+            </span>
+            <span className="export-menu-item-hint">print-ready layout</span>
+          </button>
+          <button
+            type="button"
+            className={`export-menu-item${!premium ? " export-menu-item--locked" : ""}`}
+            role="menuitem"
+            disabled={!premium}
+            onClick={() => { setOpen(false); }}
+          >
+            <span className="export-menu-item-glyph" aria-hidden="true">⊞</span>
+            <span className="export-menu-item-label">
+              export as BibTeX
+              {!premium ? <span className="premium-badge">premium</span> : null}
+            </span>
+            <span className="export-menu-item-hint">citation entries</span>
           </button>
         </div>
       ) : null}

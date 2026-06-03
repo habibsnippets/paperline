@@ -61,10 +61,9 @@ export function buildJsonExport({ topic, tree, rootStack = [] }) {
 }
 
 export function downloadJson(payload, filename) {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-    type: "application/json",
-  });
-  triggerDownload(blob, filename);
+  const text = JSON.stringify(payload, null, 2);
+  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  triggerDownload(url, filename);
 }
 
 export function jsonFilename(topic) {
@@ -242,7 +241,7 @@ function svgToPng(svgEl) {
 export async function downloadPng(svgEl, filename) {
   if (!svgEl) throw new Error("no svg to export");
   const blob = await svgToPng(svgEl);
-  triggerDownload(blob, filename);
+  await downloadBlob(blob, filename);
 }
 
 export function pngFilename(topic) {
@@ -251,14 +250,21 @@ export function pngFilename(topic) {
 
 // ---------- common ----------
 
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
+function triggerDownload(url, filename) {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.style.display = "none";
+  a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  // give the browser a tick before revoking so the download actually starts
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 2000);
+}
+
+async function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  triggerDownload(url, filename);
 }

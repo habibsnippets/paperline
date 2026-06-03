@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { arxivAbsUrl, arxivPdfUrl, looksLikeArxivId, semanticScholarUrl } from "../utils/hfApi";
 import { importanceColor } from "../utils/treeHelpers";
+import ResearchChallengesPanel from "./ResearchChallengesPanel";
 
 function looksLikeDoi(s) {
   if (!s) return false;
@@ -19,7 +20,7 @@ function generationLabel(gen) {
   return "node";
 }
 
-export default function PaperCard({ node, onClose, onFetchAbstract, abstractLoading, onPivot, canPivot, onToggleStar, starred }) {
+export default function PaperCard({ node, onClose, onFetchAbstract, abstractLoading, onPivot, canPivot, onToggleStar, starred, isRead, onToggleRead, onGenerateChallenges, challengesGenerating, onOpenStudyGuide }) {
   const [abstractExpanded, setAbstractExpanded] = useState(false);
 
   if (!node) return null;
@@ -61,6 +62,26 @@ export default function PaperCard({ node, onClose, onFetchAbstract, abstractLoad
       <header className="paper-card-head">
         <span className="paper-card-tag">{generationLabel(node.generation)}</span>
         <div className="paper-card-head-actions">
+          {onToggleRead ? (
+            <button
+              type="button"
+              className={`paper-card-read${isRead ? " paper-card-read--done" : ""}`}
+              onClick={() => onToggleRead(node)}
+              title={isRead ? "mark as unread" : "mark as read"}
+            >
+              {isRead ? "✓ read" : "○ unread"}
+            </button>
+          ) : null}
+          {onOpenStudyGuide ? (
+            <button
+              type="button"
+              className="paper-card-study-guide"
+              onClick={() => onOpenStudyGuide(node)}
+              title="open study guide"
+            >
+              📖 guide
+            </button>
+          ) : null}
           {onToggleStar ? (
             <button
               type="button"
@@ -133,16 +154,6 @@ export default function PaperCard({ node, onClose, onFetchAbstract, abstractLoad
         <section className="paper-card-section">
           <h3 className="paper-card-section-title">summary</h3>
           <p className="paper-card-summary">{node.summary}</p>
-        </section>
-      ) : null}
-
-      {node.importanceReason && !isRoot ? (
-        <section className="paper-card-section paper-card-recommend-section">
-          <h3 className="paper-card-section-title paper-card-recommend-title">
-            <span aria-hidden="true" className="paper-card-recommend-glyph">★</span>
-            on the recommended path
-          </h3>
-          <p className="paper-card-recommend-body">{node.importanceReason}</p>
         </section>
       ) : null}
 
@@ -262,6 +273,15 @@ export default function PaperCard({ node, onClose, onFetchAbstract, abstractLoad
             </a>
           </li>
         </ul>
+      </section>
+
+      <section className="paper-card-section paper-card-build-it">
+        <ResearchChallengesPanel
+          paperId={node.id || node.title}
+          challenges={node.challenges}
+          onGenerate={onGenerateChallenges}
+          generating={challengesGenerating}
+        />
       </section>
     </aside>
   );
