@@ -598,10 +598,10 @@ export default function PaperTree({
       {onOpenToDepth ? (
         <div className="paper-tree-expand-controls" role="group" aria-label="expand controls">
           <button type="button" onClick={onExpandAll} disabled={!onExpandAll} data-tree-control="true" title="expand every loaded node">
-            \u229e all
+            all
           </button>
           <button type="button" onClick={onCollapseAll} data-tree-control="true" title="collapse every node">
-            \u229f none
+            none
           </button>
           {[1, 2, 3].map((d) => (
             <button
