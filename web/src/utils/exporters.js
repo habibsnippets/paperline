@@ -171,32 +171,71 @@ function inlineComputedStyles(srcSvg, dstSvg) {
 }
 
 function buildExportSvg(srcSvg) {
-  // 1. Clone
+  // 1. Clone and set XML namespaces so the blob can be serialised.
   const clone = srcSvg.cloneNode(true);
   clone.setAttribute("xmlns", SVG_NS);
   clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
 
-  // 2. Inline styles from the live DOM
+  // 2. Inline computed styles into the clone so nothing depends on the
+  //    live page stylesheet when the SVG is rendered standalone.
   inlineComputedStyles(srcSvg, clone);
 
-  // 3. Make sure width/height are explicit
-  const rect = srcSvg.getBoundingClientRect();
-  const w = Math.max(1, Math.ceil(rect.width));
-  const h = Math.max(1, Math.ceil(rect.height));
-  clone.setAttribute("width", String(w));
-  clone.setAttribute("height", String(h));
+  // 3. Strip the D3 pan/zoom transform from the content group so every
+  //    tree node sits at its natural (un-zoomed) coordinate.  The content
+  //    group is the first <g> with a transform attribute.
+  const contentG = clone.querySelector("g[transform]");
+  if (contentG) contentG.removeAttribute("transform");
 
-  // 4. Add a solid background rect as the very first child so the PNG isn't
-  //    transparent over the page color.
+  // 4. Remove the full-container background pattern rect — it's sized to
+  //    the container (e.g. 1200×800) and would make the bbox huge.
+  const allRects = clone.querySelectorAll("rect");
+  for (const r of allRects) {
+    const fill = r.getAttribute("fill") || "";
+    if (fill.startsWith("url(#") || fill === "url(#paperGrid)") {
+      r.remove();
+      break;
+    }
+  }
+
+  // 5. Compute the actual bounding box of the tree content.  getBBox
+  //    requires the element to be in the DOM temporarily.
+  let bbox;
+  try {
+    const tmp = document.createElement("div");
+    tmp.style.cssText = "position:fixed;left:-99999px;top:0;";
+    document.body.appendChild(tmp);
+    tmp.appendChild(clone);
+    const target = contentG || clone;
+    bbox = target.getBBox();
+    document.body.removeChild(tmp);
+  } catch {
+    const r = srcSvg.getBoundingClientRect();
+    bbox = { x: 0, y: 0, width: Math.max(1, r.width), height: Math.max(1, r.height) };
+  }
+
+  // 6. Add padding so nothing is clipped against the edges.
+  const PAD = 60;
+  const bx = Math.max(0, bbox.x - PAD);
+  const by = Math.max(0, bbox.y - PAD);
+  const bw = Math.max(1, Math.ceil(bbox.width + PAD * 2));
+  const bh = Math.max(1, Math.ceil(bbox.height + PAD * 2));
+
+  // 7. Solid background rect covering the padded area (prevents transparent
+  //    PNG around the tree).
   const bg = document.createElementNS(SVG_NS, "rect");
-  bg.setAttribute("x", "0");
-  bg.setAttribute("y", "0");
-  bg.setAttribute("width", "100%");
-  bg.setAttribute("height", "100%");
+  bg.setAttribute("x", String(bx));
+  bg.setAttribute("y", String(by));
+  bg.setAttribute("width", String(bw));
+  bg.setAttribute("height", String(bh));
   bg.setAttribute("fill", "#0a0d14");
   clone.insertBefore(bg, clone.firstChild);
 
-  return { svg: clone, width: w, height: h };
+  // 8. Set explicit dimensions and viewBox so the entire tree fits.
+  clone.setAttribute("width", String(bw));
+  clone.setAttribute("height", String(bh));
+  clone.setAttribute("viewBox", `${bx} ${by} ${bw} ${bh}`);
+
+  return { svg: clone, width: bw, height: bh };
 }
 
 function svgToPng(svgEl) {
