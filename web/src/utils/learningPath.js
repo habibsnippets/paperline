@@ -53,6 +53,7 @@ export function useLearningPath({ tree, topic, signal }) {
 
   const generateProjectsForPath = useCallback(async (type) => {
     if (!path || path.length === 0) return;
+    setMilestoneShown(false);
     setProjectPath(type);
     setProjectStatus("loading");
     try {
@@ -92,6 +93,11 @@ export function useLearningPath({ tree, topic, signal }) {
     }
   }, [path, readIds, milestoneShown, projectPath]);
 
+  const dismissProjects = useCallback(() => {
+    setProjects(null);
+    setProjectStatus("idle");
+  }, []);
+
   return {
     path,
     pathStatus,
@@ -109,6 +115,7 @@ export function useLearningPath({ tree, topic, signal }) {
     projects,
     projectStatus,
     generateProjectsForPath,
+    dismissProjects,
     generatedPath,
     reset,
   };

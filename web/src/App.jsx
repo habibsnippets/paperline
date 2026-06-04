@@ -818,10 +818,7 @@ export default function App() {
             projects={learningPath.projects}
             status={learningPath.projectStatus}
             projectPath={learningPath.projectPath}
-            onDismiss={() => {
-              learningPath.setProjects(null);
-              learningPath.setProjectStatus("idle");
-            }}
+            onDismiss={learningPath.dismissProjects}
           />
         ) : null}
       </main>
