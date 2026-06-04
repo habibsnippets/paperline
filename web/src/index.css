@@ -1188,12 +1188,14 @@ code {
   letter-spacing: 0.02em;
 }
 
-/* tree controls */
+/* tree controls — vertical stack on the left */
 .paper-tree-controls {
   position: absolute;
-  bottom: 24px;
-  left: 24px;
+  top: 14px;
+  left: 14px;
+  bottom: auto;
   display: flex;
+  flex-direction: column;
   gap: 6px;
   background: rgba(15, 19, 28, 0.88);
   padding: 5px;
@@ -1218,13 +1220,14 @@ code {
   background: rgba(255,255,255,0.05);
 }
 
-/* expand-all / open-to-depth controls — sits in the bottom-left too,
-   offset to the right of the existing zoom controls */
+/* expand-all / open-to-depth controls — below the zoom controls */
 .paper-tree-expand-controls {
   position: absolute;
-  bottom: 24px;
-  left: 152px;
+  top: 140px;
+  left: 14px;
+  bottom: auto;
   display: flex;
+  flex-direction: column;
   gap: 4px;
   background: rgba(15, 19, 28, 0.88);
   padding: 5px;
@@ -1234,18 +1237,19 @@ code {
   z-index: 4;
 }
 .paper-tree-expand-controls button {
-  height: 32px;
-  padding: 0 11px;
+  height: 28px;
+  padding: 0 10px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-dim);
   border-radius: 6px;
   transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
 }
 .paper-tree-expand-controls button:hover:not(:disabled) {
   color: var(--ink);
@@ -1256,11 +1260,11 @@ code {
   cursor: not-allowed;
 }
 
-/* lock-zoom button — top-left, floats over the tree */
+/* lock-zoom button — below the expand controls */
 .paper-tree-zoom-lock {
   position: absolute;
-  top: 16px;
-  left: 16px;
+  top: 284px;
+  left: 14px;
   width: 32px;
   height: 32px;
   display: grid;
@@ -3170,14 +3174,18 @@ select.settings-input {
   color: var(--ink-faint);
 }
 
-/* shift tree controls right so the sidebar doesn't cover them */
+/* shift controls right when the learning path sidebar is active */
 .app-stage--has-learning-path .paper-tree-controls {
   left: 230px;
-  bottom: 24px;
+  top: 14px;
 }
 .app-stage--has-learning-path .paper-tree-expand-controls {
-  left: 358px;
-  bottom: 24px;
+  left: 230px;
+  top: 140px;
+}
+.app-stage--has-learning-path .paper-tree-zoom-lock {
+  left: 230px;
+  top: 284px;
 }
 
 /* ---------- study guide overlay ---------- */
@@ -3576,12 +3584,13 @@ select.settings-input {
   .idle-title { font-size: 36px; }
   .searchbar-input { font-size: 16px; padding: 12px 14px; }
   .searchbar-button { padding: 0 14px; font-size: 11px; }
-  .paper-tree-controls { bottom: 14px; left: 14px; }
-  .paper-tree-hint { bottom: 64px; font-size: 11px; padding: 0 16px; }
-  .paper-tree-expand-controls { bottom: 14px; left: 142px; }
-  .paper-tree-expand-controls button { padding: 0 8px; }
-  .paper-tree-zoom-lock { top: 10px; left: 10px; }
-  .paper-tree-best-toggle { top: 50px; left: 10px; }
+  .paper-tree-controls { left: 10px; top: 10px; }
+  .paper-tree-expand-controls { left: 10px; top: 132px; }
+  .paper-tree-expand-controls button { height: 24px; padding: 0 8px; font-size: 9px; }
+  .paper-tree-zoom-lock { top: 270px; left: 10px; }
+  .app-stage--has-learning-path .paper-tree-controls { left: 160px; top: 10px; }
+  .app-stage--has-learning-path .paper-tree-expand-controls { left: 160px; top: 132px; }
+  .app-stage--has-learning-path .paper-tree-zoom-lock { left: 160px; top: 270px; }
   .treestats { top: 4px; max-width: calc(100% - 16px); }
   .treestats-body { padding: 8px 10px; gap: 4px; }
   .treestats-stat { min-width: 40px; padding: 2px 4px; }
