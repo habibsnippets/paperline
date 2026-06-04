@@ -706,7 +706,7 @@ export default function App() {
         ) : null}
 
         {state.tree ? (
-          <div className="app-stage">
+          <div className={`app-stage${learningPath.path ? " app-stage--has-learning-path" : ""}`}>
             {showInlineStrip ? (
               <div className="stage-loading-strip" role="status" aria-live="polite">
                 <span className="stage-loading-dot" />

@@ -3050,6 +3050,13 @@ select.settings-input {
   border-radius: 4px;
 }
 
+.app-stage--has-learning-path .paper-tree-controls {
+  bottom: 96px;
+}
+.app-stage--has-learning-path .paper-tree-expand-controls {
+  bottom: 96px;
+}
+
 .learning-path-bar__actions {
   display: flex;
   align-items: center;
