@@ -461,6 +461,10 @@ code {
 .idle-title-line {
   font-weight: 700;
   color: var(--root-2);
+  text-decoration: underline;
+  text-underline-offset: 6px;
+  text-decoration-color: var(--root-2);
+  text-decoration-thickness: 2px;
 }
 .idle-sub {
   max-width: 560px;
