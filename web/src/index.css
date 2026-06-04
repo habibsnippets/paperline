@@ -3010,6 +3010,13 @@ select.settings-input {
   border-top: 1px solid var(--line);
   max-height: 80px;
   overflow: hidden;
+  display: flex;
+  align-items: stretch;
+}
+
+.learning-path-bar--active .learning-path-bar__scroll {
+  flex: 1;
+  min-width: 0;
 }
 .learning-path-bar__inner {
   display: flex;
@@ -3547,8 +3554,10 @@ select.settings-input {
   .reading-panel { width: 100vw; border-left: 0; }
   .onboarding-card { padding: 24px 20px 20px; }
   .onboarding-title { font-size: 20px; }
-  .learning-path-bar { position: relative; max-height: none; }
+  .learning-path-bar { position: relative; max-height: none; flex-wrap: wrap; }
+  .learning-path-bar--active .learning-path-bar__scroll { flex: 1 1 auto; }
   .learning-path-node__label { font-size: 9px; }
+  .learning-path-projects-btn { font-size: 10px; padding: 4px 10px; }
   .study-guide-panel { padding: 20px; }
   .projects-panel { padding: 20px; }
   .milestone-card { padding: 24px 20px; }
