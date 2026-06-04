@@ -10,7 +10,7 @@ export default function StudyGuidePanel({
     <div className="study-guide-overlay" onClick={onClose}>
       <div className="study-guide-panel" onClick={(e) => e.stopPropagation()}>
         <button className="study-guide-panel__close" onClick={onClose}>
-          ✕
+          x
         </button>
         <h2 className="study-guide-panel__title">
           Study Guide: {paper?.title?.length > 60 ? paper.title.slice(0, 58) + "…" : paper?.title}

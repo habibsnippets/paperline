@@ -645,7 +645,7 @@ function Popover({ open, node, transform, onClose, kind, children }) {
       aria-label={kind === "info" ? "paper detail" : "validation warnings"}
     >
       <button type="button" className="tree-popover-close" onClick={onClose} aria-label="close">
-        \u00d7
+        x
       </button>
       {children}
     </div>

@@ -10,7 +10,7 @@ export default function ProjectGenerationPanel({
     <div className="projects-overlay" onClick={onDismiss}>
       <div className="projects-panel" onClick={(e) => e.stopPropagation()}>
         <button className="projects-panel__close" onClick={onDismiss}>
-          ✕
+          x
         </button>
         <h2 className="projects-panel__title">
           {projectPath === "mle"
