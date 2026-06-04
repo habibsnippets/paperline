@@ -1026,7 +1026,7 @@ function IdleScreen({
     <div className="idle">
       <div className="idle-inner">
         <h1 className="idle-title">
-          dig the grave of <span className="idle-title-accent">the paper</span>
+          <span className="idle-title-paper">paper</span><span className="idle-title-line">LINE</span>
         </h1>
         <p className="idle-sub">
           every idea has a bloodline

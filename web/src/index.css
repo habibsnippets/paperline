@@ -447,16 +447,19 @@ code {
   text-align: center;
 }
 .idle-title {
-  font-family: var(--font-serif);
-  font-weight: 500;
-  font-size: clamp(36px, 5.4vw, 60px);
-  line-height: 1.12;
-  letter-spacing: -0.012em;
-  margin: 0 0 24px;
+  font-family: "Cinzel Decorative", var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(42px, 6vw, 72px);
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
   color: var(--ink);
 }
-.idle-title-accent {
-  font-style: italic;
+.idle-title-paper {
+  font-weight: 400;
+}
+.idle-title-line {
+  font-weight: 700;
   color: var(--root-2);
 }
 .idle-sub {
@@ -3583,7 +3586,7 @@ select.settings-input {
     gap: 16px;
   }
   .paper-card-star span:last-child { display: none; }
-  .idle-title { font-size: 36px; }
+  .idle-title { font-size: 32px; }
   .searchbar-input { font-size: 16px; padding: 12px 14px; }
   .searchbar-button { padding: 0 14px; font-size: 11px; }
   .paper-tree-controls { left: 10px; top: 10px; }
