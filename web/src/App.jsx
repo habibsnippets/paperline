@@ -609,6 +609,16 @@ export default function App() {
     setStudyGuidePaperId(null);
   }, []);
 
+  const onOpenLearningPath = useCallback(() => {
+    if (learningPath.path && learningPath.path.length > 0) {
+      const first = learningPath.path[0];
+      const node = first ? findNodeByTitle(state.tree, first.paper_title) : null;
+      if (node) update({ selectedId: node.id });
+    } else {
+      learningPath.generate();
+    }
+  }, [learningPath.path, state.tree, update, learningPath.generate]);
+
   const selectedNode = useMemo(
     () => (state.tree && state.selectedId ? findNode(state.tree, state.selectedId) : null),
     [state.tree, state.selectedId]
@@ -656,6 +666,8 @@ export default function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenReadingList={() => setReadingListOpen(true)}
         onOpenReadingPath={() => setReadingPathOpen(true)}
+        onOpenLearningPath={onOpenLearningPath}
+        hasLearningPath={Boolean(learningPath.path)}
         hasToken={hasToken}
         readingListCount={readingList.length}
         maxDepth={maxDepth}
@@ -870,6 +882,8 @@ function TopBar({
   onOpenSettings,
   onOpenReadingList,
   onOpenReadingPath,
+  onOpenLearningPath,
+  hasLearningPath = false,
   hasToken,
   readingListCount = 0,
   maxDepth,
@@ -964,16 +978,8 @@ function TopBar({
           <button
             type="button"
             className="topbar-btn topbar-btn--learning-path"
-            onClick={() => {
-              if (learningPath.path) {
-                const first = learningPath.path[0];
-                const node = first ? findNodeByTitle(state.tree, first.paper_title) : null;
-                if (node) update({ selectedId: node.id });
-              } else {
-                learningPath.generate();
-              }
-            }}
-            title="learning path"
+            onClick={onOpenLearningPath}
+            title={hasLearningPath ? "jump to first paper" : "generate learning path"}
             aria-label="learning path"
           >
             <span aria-hidden="true">🎓</span> learn

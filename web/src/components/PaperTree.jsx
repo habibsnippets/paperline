@@ -273,6 +273,7 @@ export default function PaperTree({
         height={size.h}
         role="img"
         aria-label="paperline tree"
+        data-paper-tree-bounds={bounds ? JSON.stringify(bounds) : ""}
         data-paper-tree-svg="true"
         onClick={handleBackgroundClick}
       >

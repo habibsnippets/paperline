@@ -171,57 +171,47 @@ function inlineComputedStyles(srcSvg, dstSvg) {
 }
 
 function buildExportSvg(srcSvg) {
-  // 1. Clone and set XML namespaces so the blob can be serialised.
+  // 1. Read the tree-bounds computed by PaperTree from a data attribute.
+  //    These are the exact D3 layout bounds (no transform applied) so they
+  //    give us the full extent of the tree at 1:1 scale.
+  let bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 1, height: 1 };
+  try {
+    const raw = srcSvg.getAttribute("data-paper-tree-bounds");
+    if (raw && raw !== "null") bounds = JSON.parse(raw);
+  } catch { /* ignore */ }
+
+  const PAD = 60;
+  const bx = Math.max(0, bounds.minX - PAD);
+  const by = Math.max(0, bounds.minY - PAD);
+  const bw = Math.max(1, Math.ceil(bounds.width + PAD * 2));
+  const bh = Math.max(1, Math.ceil(bounds.height + PAD * 2));
+
+  // 2. Clone and set XML namespaces.
   const clone = srcSvg.cloneNode(true);
   clone.setAttribute("xmlns", SVG_NS);
   clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
 
-  // 2. Inline computed styles into the clone so nothing depends on the
-  //    live page stylesheet when the SVG is rendered standalone.
+  // 3. Inline computed styles so the clone is self-contained. Must happen
+  //    BEFORE any structural changes so the lockstep walk stays in sync.
   inlineComputedStyles(srcSvg, clone);
 
-  // 3. Strip the D3 pan/zoom transform from the content group so every
-  //    tree node sits at its natural (un-zoomed) coordinate.  The content
-  //    group is the first <g> with a transform attribute.
-  const contentG = clone.querySelector("g[transform]");
-  if (contentG) contentG.removeAttribute("transform");
+  // 4. Strip the D3 zoom transform from the content group so nodes render
+  //    at their natural coordinates (the viewBox below will frame them).
+  const cloneG = clone.querySelector("g[transform]");
+  if (cloneG) cloneG.removeAttribute("transform");
 
-  // 4. Remove the full-container background pattern rect — it's sized to
-  //    the container (e.g. 1200×800) and would make the bbox huge.
+  // 5. Remove the full-container pattern background rect — it's sized to
+  //    the viewport container, not the tree, and would throw off rendering.
   const allRects = clone.querySelectorAll("rect");
   for (const r of allRects) {
     const fill = r.getAttribute("fill") || "";
-    if (fill.startsWith("url(#") || fill === "url(#paperGrid)") {
+    if (fill.startsWith("url(#paperGrid") || fill === "url(#paperGrid)") {
       r.remove();
       break;
     }
   }
 
-  // 5. Compute the actual bounding box of the tree content.  getBBox
-  //    requires the element to be in the DOM temporarily.
-  let bbox;
-  try {
-    const tmp = document.createElement("div");
-    tmp.style.cssText = "position:fixed;left:-99999px;top:0;";
-    document.body.appendChild(tmp);
-    tmp.appendChild(clone);
-    const target = contentG || clone;
-    bbox = target.getBBox();
-    document.body.removeChild(tmp);
-  } catch {
-    const r = srcSvg.getBoundingClientRect();
-    bbox = { x: 0, y: 0, width: Math.max(1, r.width), height: Math.max(1, r.height) };
-  }
-
-  // 6. Add padding so nothing is clipped against the edges.
-  const PAD = 60;
-  const bx = Math.max(0, bbox.x - PAD);
-  const by = Math.max(0, bbox.y - PAD);
-  const bw = Math.max(1, Math.ceil(bbox.width + PAD * 2));
-  const bh = Math.max(1, Math.ceil(bbox.height + PAD * 2));
-
-  // 7. Solid background rect covering the padded area (prevents transparent
-  //    PNG around the tree).
+  // 6. Add a solid background rect covering the export area.
   const bg = document.createElementNS(SVG_NS, "rect");
   bg.setAttribute("x", String(bx));
   bg.setAttribute("y", String(by));
@@ -230,7 +220,7 @@ function buildExportSvg(srcSvg) {
   bg.setAttribute("fill", "#0a0d14");
   clone.insertBefore(bg, clone.firstChild);
 
-  // 8. Set explicit dimensions and viewBox so the entire tree fits.
+  // 7. Set explicit dimensions and viewBox from the tree bounds + padding.
   clone.setAttribute("width", String(bw));
   clone.setAttribute("height", String(bh));
   clone.setAttribute("viewBox", `${bx} ${by} ${bw} ${bh}`);
