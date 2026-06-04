@@ -3000,6 +3000,7 @@ select.settings-input {
 
 /* ---------- learning path timeline ---------- */
 
+/* idle / loading / error — thin bottom strip */
 .learning-path-bar {
   position: absolute;
   bottom: 0;
@@ -3013,11 +3014,6 @@ select.settings-input {
   display: flex;
   align-items: stretch;
 }
-
-.learning-path-bar--active .learning-path-bar__scroll {
-  flex: 1;
-  min-width: 0;
-}
 .learning-path-bar__inner {
   display: flex;
   align-items: center;
@@ -3026,6 +3022,7 @@ select.settings-input {
   padding: 10px 16px;
   font-size: 12px;
   color: var(--ink-dim);
+  width: 100%;
 }
 .learning-path-bar--idle .learning-path-bar__inner {
   justify-content: space-between;
@@ -3034,41 +3031,67 @@ select.settings-input {
   justify-content: space-between;
   color: #dc5050;
 }
-.learning-path-bar__scroll {
+
+/* active — vertical left sidebar */
+.learning-path-bar--active {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 210px;
+  z-index: 30;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+  border-top: none;
+  max-height: none;
+  overflow: hidden;
   display: flex;
-  gap: 0;
-  overflow-x: auto;
-  padding: 6px 12px;
+  flex-direction: column;
+}
+
+.learning-path-bar__header {
+  padding: 14px 14px 8px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.learning-path-bar__title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.learning-path-bar--active .learning-path-bar__scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 8px;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
-.learning-path-bar__scroll::-webkit-scrollbar {
-  height: 4px;
+.learning-path-bar--active .learning-path-bar__scroll::-webkit-scrollbar {
+  width: 4px;
 }
-.learning-path-bar__scroll::-webkit-scrollbar-thumb {
+.learning-path-bar--active .learning-path-bar__scroll::-webkit-scrollbar-thumb {
   background: var(--line);
   border-radius: 4px;
 }
 
-.app-stage--has-learning-path .paper-tree-controls {
-  bottom: 96px;
-}
-.app-stage--has-learning-path .paper-tree-expand-controls {
-  bottom: 96px;
-}
-
-.learning-path-bar__actions {
-  display: flex;
-  align-items: center;
-  padding: 6px 12px 6px 0;
+.learning-path-bar--active .learning-path-bar__actions {
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
   flex-shrink: 0;
+  display: flex;
 }
 
 .learning-path-projects-btn {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
-  padding: 6px 14px;
+  padding: 7px 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: transparent;
@@ -3076,6 +3099,7 @@ select.settings-input {
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
   white-space: nowrap;
+  width: 100%;
 }
 .learning-path-projects-btn:hover {
   border-color: var(--root);
@@ -3085,27 +3109,14 @@ select.settings-input {
 
 .learning-path-node {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 4px 10px;
+  gap: 8px;
+  padding: 6px 8px;
   cursor: pointer;
   border-radius: 6px;
   transition: background 0.15s;
-  min-width: 60px;
   flex-shrink: 0;
-  position: relative;
 }
-.learning-path-node::after {
-  content: "→";
-  position: absolute;
-  right: -6px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--ink-faint);
-  font-size: 10px;
-}
-.learning-path-node:last-child::after { display: none; }
 .learning-path-node:hover { background: rgba(255,255,255,0.04); }
 .learning-path-node--selected {
   background: rgba(214, 166, 79, 0.1);
@@ -3116,8 +3127,8 @@ select.settings-input {
 }
 
 .learning-path-node__dot {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   border: 1.5px solid var(--line);
   display: flex;
@@ -3127,25 +3138,46 @@ select.settings-input {
   font-size: 10px;
   color: var(--ink-dim);
   transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
 }
 .learning-path-node--read .learning-path-node__dot {
   background: rgba(112, 192, 112, 0.2);
   border-color: #70c070;
   color: #70c070;
 }
+
+.learning-path-node__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
 .learning-path-node__label {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--ink-dim);
-  text-align: center;
-  max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.3;
+}
+.learning-path-node--selected .learning-path-node__label {
+  color: var(--ink);
 }
 .learning-path-node__year {
   font-family: var(--font-mono);
   font-size: 9px;
   color: var(--ink-faint);
+}
+
+/* shift tree controls right so the sidebar doesn't cover them */
+.app-stage--has-learning-path .paper-tree-controls {
+  left: 230px;
+  bottom: 24px;
+}
+.app-stage--has-learning-path .paper-tree-expand-controls {
+  left: 358px;
+  bottom: 24px;
 }
 
 /* ---------- study guide overlay ---------- */
@@ -3561,10 +3593,14 @@ select.settings-input {
   .reading-panel { width: 100vw; border-left: 0; }
   .onboarding-card { padding: 24px 20px 20px; }
   .onboarding-title { font-size: 20px; }
-  .learning-path-bar { position: relative; max-height: none; flex-wrap: wrap; }
-  .learning-path-bar--active .learning-path-bar__scroll { flex: 1 1 auto; }
+  .learning-path-bar--active { width: 140px; }
+  .learning-path-bar--active .learning-path-bar__scroll { gap: 1px; padding: 4px; }
+  .learning-path-node { padding: 4px 6px; gap: 6px; }
+  .learning-path-node__dot { width: 18px; height: 18px; font-size: 9px; }
   .learning-path-node__label { font-size: 9px; }
   .learning-path-projects-btn { font-size: 10px; padding: 4px 10px; }
+  .app-stage--has-learning-path .paper-tree-controls { left: 160px; }
+  .app-stage--has-learning-path .paper-tree-expand-controls { left: 288px; }
   .study-guide-panel { padding: 20px; }
   .projects-panel { padding: 20px; }
   .milestone-card { padding: 24px 20px; }

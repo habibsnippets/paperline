@@ -46,6 +46,9 @@ export default function LearningPathTimeline({
 
   return (
     <div className="learning-path-bar learning-path-bar--active">
+      <div className="learning-path-bar__header">
+        <span className="learning-path-bar__title">📖 Reading Path</span>
+      </div>
       <div className="learning-path-bar__scroll">
         {path.map((node, i) => {
           const isSelected = selectedPaper === node.paper_title;
@@ -59,12 +62,14 @@ export default function LearningPathTimeline({
               <div className="learning-path-node__dot">
                 {isRead ? "✓" : i + 1}
               </div>
-              <div className="learning-path-node__label">
-                {node.paper_title.length > 30
-                  ? node.paper_title.slice(0, 28) + "…"
-                  : node.paper_title}
+              <div className="learning-path-node__text">
+                <div className="learning-path-node__label">
+                  {node.paper_title.length > 40
+                    ? node.paper_title.slice(0, 38) + "…"
+                    : node.paper_title}
+                </div>
+                <div className="learning-path-node__year">{node.paper_year}</div>
               </div>
-              <div className="learning-path-node__year">{node.paper_year}</div>
             </div>
           );
         })}
