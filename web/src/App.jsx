@@ -1029,9 +1029,7 @@ function IdleScreen({
           dig the grave of <span className="idle-title-accent">the paper</span>
         </h1>
         <p className="idle-sub">
-          Trace the intellectual ancestry and descendancy of any research idea.
-          Enter a topic — we'll surface the seminal root paper, then the
-          work that built on it, one click at a time.
+          every idea has a bloodline
         </p>
 
         {!hasToken ? (
