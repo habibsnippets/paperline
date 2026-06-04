@@ -590,9 +590,9 @@ export default function PaperTree({
       ) : null}
 
       <div className="paper-tree-controls" role="group" aria-label="tree controls">
-        <button type="button" onClick={() => zoomBy(1.25)} aria-label="zoom in" data-tree-control="true">+</button>
-        <button type="button" onClick={() => zoomBy(0.8)} aria-label="zoom out" data-tree-control="true">\u2212</button>
-        <button type="button" onClick={resetView} aria-label="reset view" data-tree-control="true">\u2922</button>
+        <button type="button" onClick={() => zoomBy(1.25)} aria-label="zoom in" data-tree-control="true">zoom+</button>
+        <button type="button" onClick={() => zoomBy(0.8)} aria-label="zoom out" data-tree-control="true">zoom−</button>
+        <button type="button" onClick={resetView} aria-label="reset view" data-tree-control="true">reset</button>
       </div>
 
       {onOpenToDepth ? (
