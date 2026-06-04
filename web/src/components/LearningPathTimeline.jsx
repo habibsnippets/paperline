@@ -6,6 +6,7 @@ export default function LearningPathTimeline({
   selectedPaper,
   onSelect,
   onGenerate,
+  onOpenProjectPicker,
 }) {
   if (status === "loading") {
     return (
@@ -67,6 +68,16 @@ export default function LearningPathTimeline({
             </div>
           );
         })}
+      </div>
+      <div className="learning-path-bar__actions">
+        <button
+          type="button"
+          className="learning-path-projects-btn"
+          onClick={onOpenProjectPicker}
+          title="generate MLE or Research projects"
+        >
+          🎯 Projects
+        </button>
       </div>
     </div>
   );

@@ -774,6 +774,7 @@ export default function App() {
                 if (title) onOpenStudyGuide(findNodeByTitle(state.tree, title));
               }}
               onGenerate={learningPath.generate}
+              onOpenProjectPicker={() => learningPath.setMilestoneShown(true)}
             />
           </div>
         ) : null}
